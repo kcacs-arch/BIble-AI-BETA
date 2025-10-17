@@ -1,0 +1,3 @@
+flask
+gradio
+google-genai
