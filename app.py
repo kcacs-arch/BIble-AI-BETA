@@ -1,11 +1,7 @@
 import os
 import gradio as gr
-from flask import Flask, render_template
 from google import genai
 
-# -------------------------------
-# Initialize the Gemini Client
-# -------------------------------
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     raise ValueError("No GEMINI_API_KEY found in environment variables!")
@@ -29,37 +25,30 @@ SYSTEM_INSTRUCTION = (
     "and Nolan Andre (User Experience & Quality Control). Together, they built a successful interdisciplinary AI project.'"
 )
 
-# -------------------------------
-# Create Gradio Chat Interface
-# -------------------------------
-def get_response(message, history):
-    chat = client.chats.create(
-        model=MODEL_NAME,
-        config=genai.types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION)
-    )
-    reply = chat.send_message(message)
-    return history + [(message, reply.text)]
+chat_session = None
 
-chatbot = gr.Chatbot(height=500)
-iface = gr.Interface(
+def get_response(message, history):
+    global chat_session
+    
+    if len(history) == 0:
+        chat_session = client.chats.create(
+            model=MODEL_NAME,
+            config=genai.types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION)
+        )
+    
+    user_message = message if isinstance(message, str) else message["content"]
+    reply = chat_session.send_message(user_message)
+    return reply.text
+
+demo = gr.ChatInterface(
     fn=get_response,
-    inputs=[gr.Textbox(label="Ask about life, Scripture, or wisdom.")],
-    outputs=chatbot,
-    title="Biblical AI Counselor"
+    title="Biblical AI Counselor",
+    description="Rooted in the Holy Bible — not modern philosophy.",
+    textbox=gr.Textbox(placeholder="Ask about life, Scripture, or wisdom.", container=False, scale=7),
+    chatbot=gr.Chatbot(height=500, type="messages"),
+    type="messages"
 )
 
-# -------------------------------
-# Create Flask Web App
-# -------------------------------
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/bibleai")
-def bible_ai():
-    return iface.launch(share=False, inline=True, prevent_thread_lock=True)
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    demo.launch(server_name="0.0.0.0", server_port=5000)
+
